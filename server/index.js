@@ -20,8 +20,8 @@ const PORT = process.env.PORT || 5000;
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
-      defaultSrc: ["'self'", "https:", "data:", "blob:", "'unsafe-inline'", "'unsafe-eval'"],
-      scriptSrc: ["'self'", "https:", "'unsafe-inline'", "'unsafe-eval'"],
+      defaultSrc: ["'self'", "https:", "data:", "blob:", "'unsafe-inline'"],
+      scriptSrc: ["'self'", "https:", "'unsafe-inline'"],
       styleSrc: ["'self'", "https:", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
       connectSrc: ["'self'", "https:", "wss:"],
@@ -72,15 +72,20 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// 404 handler for unmatched API routes
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: 'API Route not found' });
+});
+
 // Serve frontend in production
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../client/dist')));
-  // Fallback to React Router for all other routes
+  // Fallback to React Router for all other non-API routes
   app.use((req, res) => {
     res.sendFile(path.join(__dirname, '../client/dist/index.html'));
   });
 } else {
-  // 404 handler for API routes
+  // General 404 handler for non-production environments
   app.use((req, res) => {
     res.status(404).json({ error: 'Route not found' });
   });

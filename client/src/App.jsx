@@ -127,7 +127,7 @@ function AppContent() {
             
             {user ? (
               <div className="flex items-center gap-3 p-3 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0]">
-                <img src={user.photoURL} alt="User" className="w-10 h-10 rounded-full shadow-sm" />
+                <img src={user.photoURL} alt={`${user.displayName} profile`} className="w-10 h-10 rounded-full shadow-sm" />
                 <div className="flex flex-col flex-1 text-left overflow-hidden">
                   <p className="text-sm font-bold text-[#0F172A] truncate">{user.displayName}</p>
                   <button onClick={logout} className="text-xs text-red-500 font-semibold hover:text-red-600 text-left w-fit">
@@ -160,6 +160,7 @@ function AppContent() {
         </div>
         <button
           onClick={() => setMobileMenuOpen(true)}
+          aria-label="Open mobile menu"
           className="p-2.5 rounded-xl bg-white shadow-sm text-[#0F172A]"
         >
           <Menu size={20} />
@@ -172,7 +173,7 @@ function AppContent() {
           <div className="absolute right-0 top-0 bottom-0 w-[85%] max-w-sm bg-white shadow-2xl p-6 flex flex-col animate-slide-in-right" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-8">
               <h2 className="font-display font-black text-2xl">Menu</h2>
-              <button onClick={() => setMobileMenuOpen(false)} className="p-2 bg-slate-100 rounded-full">
+              <button onClick={() => setMobileMenuOpen(false)} aria-label="Close mobile menu" className="p-2 bg-slate-100 rounded-full">
                 <X size={20} />
               </button>
             </div>
@@ -198,7 +199,7 @@ function AppContent() {
               <LanguageToggle />
               {user ? (
                 <div className="flex items-center gap-3 p-4 rounded-2xl bg-slate-50">
-                  <img src={user.photoURL} alt="User" className="w-10 h-10 rounded-full" />
+                  <img src={user.photoURL} alt={`${user.displayName} profile`} className="w-10 h-10 rounded-full" />
                   <div className="text-left flex-1">
                     <p className="text-sm font-bold text-[#0F172A]">{user.displayName}</p>
                     <button onClick={logout} className="text-xs text-red-500 font-semibold">Sign Out</button>
