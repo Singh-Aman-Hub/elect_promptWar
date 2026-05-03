@@ -96,7 +96,7 @@ export default function ChatWindow() {
             </h2>
             <p className="text-xs mt-1 flex items-center gap-1 font-semibold text-[#64748B]">
               <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse inline-block" />
-              Online · Gemini 2.5 Flash
+              Online · Gemini 1.5 Flash
             </p>
           </div>
         </div>

@@ -1,5 +1,9 @@
 # 🇮🇳 ElectVoice — AI-Powered Election Process Education Assistant
 
+> [!IMPORTANT]
+> **Problem Statement:** Election Process Education
+> ElectVoice aims to bridge the information gap for Indian citizens by providing a verified, multi-lingual, and intelligent platform to understand the end-to-end election process, from voter registration to polling day procedures.
+
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-Visit-orange?style=for-the-badge)](https://electvoice.onrender.com)
 [![CI](https://github.com/Ganesh-0509/electvoice/actions/workflows/main.yml/badge.svg)](https://github.com/Ganesh-0509/electvoice/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)

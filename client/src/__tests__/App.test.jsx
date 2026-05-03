@@ -1,11 +1,20 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import App from '../App';
 
 /**
- * Placeholder test file for App.jsx
- * This ensures test runners recognize the frontend codebase has coverage structure.
+ * App Component Tests
+ * Validates that the main application shell renders correctly.
  */
 describe('App Component', () => {
-  it('should pass a basic truthy test to ensure test runner is functional', () => {
-    expect(true).toBe(true);
+  it('renders the application logo and title', () => {
+    render(<App />);
+    const logoText = screen.getAllByText(/Elect/i);
+    expect(logoText.length).toBeGreaterThan(0);
+  });
+
+  it('renders the sidebar navigation menu', () => {
+    render(<App />);
+    expect(screen.getByRole('navigation', { name: /Sidebar navigation/i })).toBeInTheDocument();
   });
 });

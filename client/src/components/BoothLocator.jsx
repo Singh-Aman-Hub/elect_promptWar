@@ -2,7 +2,45 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { MapPin, Navigation, List, Search, ExternalLink, Loader2 } from 'lucide-react';
 import PropTypes from 'prop-types';
 import { fetchPollingBooths } from '../services/searchService';
-import { loadGoogleMapsScript, getUserLocation } from '../services/mapsService';
+import { getUserLocation } from '../services/mapsService';
+
+const DELHI_CENTER = { lat: 28.6139, lng: 77.209 };
+
+/**
+ * Load Google Maps using the modern importLibrary pattern.
+ * Returns { Map, InfoWindow, LatLngBounds, AdvancedMarkerElement, PinElement }
+ */
+async function loadMapsLibraries() {
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+  if (!apiKey || apiKey === 'your_google_maps_api_key_here') {
+    throw new Error('Google Maps API key not configured');
+  }
+
+  // Inject the bootstrap script once
+  if (!window.google?.maps) {
+    await new Promise((resolve, reject) => {
+      if (document.getElementById('gmap-bootstrap')) {
+        // Already injecting — wait for it
+        const poll = setInterval(() => {
+          if (window.google?.maps) { clearInterval(poll); resolve(); }
+        }, 50);
+        return;
+      }
+      const s = document.createElement('script');
+      s.id = 'gmap-bootstrap';
+      s.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&v=weekly&libraries=marker&loading=async`;
+      s.async = true;
+      s.onload = resolve;
+      s.onerror = () => reject(new Error('Failed to load Google Maps script'));
+      document.head.appendChild(s);
+    });
+  }
+
+  const { Map, InfoWindow, LatLngBounds } = await window.google.maps.importLibrary('maps');
+  const { AdvancedMarkerElement, PinElement } = await window.google.maps.importLibrary('marker');
+
+  return { Map, InfoWindow, LatLngBounds, AdvancedMarkerElement, PinElement };
+}
 
 /**
  * BoothLocator — Google Maps integration for polling booth discovery
@@ -14,62 +52,62 @@ export default function BoothLocator() {
   const [isLoadingMap, setIsLoadingMap] = useState(true);
   const [mapError, setMapError] = useState(null);
   const [boothError, setBoothError] = useState(null);
-  const [constituencyInput, setConstituencyInput] = useState('');
-  const [mapLoaded, setMapLoaded] = useState(false);
-  const [activeView, setActiveView] = useState('split'); // 'map' | 'list' | 'split'
+  const [searchText, setSearchText] = useState('');
+  const [activeView, setActiveView] = useState('split');
 
   const mapRef = useRef(null);
   const googleMapRef = useRef(null);
-  const searchInputRef = useRef(null);
   const markersRef = useRef([]);
   const infoWindowRef = useRef(null);
+  const libsRef = useRef(null);
 
-  const DELHI_CENTER = { lat: 28.6139, lng: 77.209 };
-
+  // ── Clear + place AdvancedMarkers ─────────────────────────────────────────
   const placeMarkers = useCallback((boothList) => {
-    // Clear existing markers
-    markersRef.current.forEach((m) => m.setMap(null));
+    markersRef.current.forEach((m) => { m.map = null; });
     markersRef.current = [];
 
+    if (!libsRef.current || !googleMapRef.current) return;
+    const { AdvancedMarkerElement, PinElement } = libsRef.current;
+
     boothList.forEach((booth) => {
-      const pinElement = new window.google.maps.marker.PinElement({
+      const pin = new PinElement({
         background: '#FF9933',
         borderColor: '#ffffff',
         glyphColor: '#ffffff',
-        scale: 0.8,
+        scale: 0.9,
       });
 
-      const marker = new window.google.maps.marker.AdvancedMarkerElement({
-        position: { lat: booth.lat, lng: booth.lng },
+      const marker = new AdvancedMarkerElement({
         map: googleMapRef.current,
+        position: { lat: booth.lat, lng: booth.lng },
         title: booth.name,
-        content: pinElement.element,
+        content: pin,
       });
 
-      marker.addListener('click', () => {
+      marker.addListener('gmp-click', () => {
         setSelectedBooth(booth);
         infoWindowRef.current.setContent(`
-          <div style="font-family: Inter, sans-serif; padding: 8px; min-width: 200px;">
-            <h3 style="font-weight: 700; color: #FF9933; margin-bottom: 6px; font-size: 13px;">${booth.name}</h3>
-            <p style="font-size: 12px; color: #555; margin-bottom: 4px;">📍 ${booth.address}</p>
-            <p style="font-size: 12px; color: #555; margin-bottom: 4px;">🗳️ Booth No: ${booth.boothNo}</p>
-            <p style="font-size: 12px; color: #555; margin-bottom: 8px;">⏰ ${booth.timings}</p>
-            <a href="https://www.google.com/maps/dir/?api=1&destination=${booth.lat},${booth.lng}" 
+          <div style="font-family:Inter,sans-serif;padding:8px;min-width:200px">
+            <h3 style="font-weight:700;color:#FF9933;margin-bottom:6px;font-size:13px">${booth.name}</h3>
+            <p style="font-size:12px;color:#555;margin-bottom:4px">📍 ${booth.address}</p>
+            <p style="font-size:12px;color:#555;margin-bottom:4px">🗳️ Booth No: ${booth.boothNo}</p>
+            <p style="font-size:12px;color:#555;margin-bottom:8px">⏰ ${booth.timings}</p>
+            <a href="https://www.google.com/maps/dir/?api=1&destination=${booth.lat},${booth.lng}"
                target="_blank" rel="noopener noreferrer"
-               style="background: #FF9933; color: white; padding: 5px 12px; border-radius: 6px; text-decoration: none; font-size: 12px; font-weight: 600;">
+               style="background:#FF9933;color:white;padding:5px 12px;border-radius:6px;text-decoration:none;font-size:12px;font-weight:600">
               Get Directions →
             </a>
           </div>
         `);
-        infoWindowRef.current.open(googleMapRef.current, marker);
+        infoWindowRef.current.open({ map: googleMapRef.current, anchor: marker });
       });
 
       markersRef.current.push(marker);
     });
 
-    // Fit map to markers
-    if (boothList.length > 0 && googleMapRef.current) {
-      const bounds = new window.google.maps.LatLngBounds();
+    if (boothList.length > 0) {
+      const { LatLngBounds } = libsRef.current;
+      const bounds = new LatLngBounds();
       boothList.forEach((b) => bounds.extend({ lat: b.lat, lng: b.lng }));
       googleMapRef.current.fitBounds(bounds, 60);
     }
@@ -79,98 +117,59 @@ export default function BoothLocator() {
     setIsLoadingBooths(true);
     setBoothError(null);
     try {
-      const fetchedBooths = await fetchPollingBooths({ lat, lng });
-      setBooths(fetchedBooths);
-      if (googleMapRef.current) {
-        placeMarkers(fetchedBooths);
-      }
-    } catch {
+      const fetched = await fetchPollingBooths({ lat, lng });
+      setBooths(fetched);
+      try { placeMarkers(fetched); } catch { /* marker errors don't affect booth list */ }
+    } catch (err) {
       setBoothError('Failed to load booths. Please try again.');
+      console.error('[BoothLocator] fetchPollingBooths error:', err);
     } finally {
       setIsLoadingBooths(false);
     }
   }, [placeMarkers]);
 
-  const handleSearch = useCallback(
-    async (address, lat, lng) => {
-      setIsLoadingBooths(true);
-      setBoothError(null);
-      if (googleMapRef.current) {
-        googleMapRef.current.setCenter({ lat, lng });
-        googleMapRef.current.setZoom(14);
-      }
-      await loadBoothsByLocation(lat, lng);
-    },
-    [loadBoothsByLocation]
-  );
-
-  // Initialize Google Maps
+  // ── Initialize map once ───────────────────────────────────────────────────
   useEffect(() => {
-    loadGoogleMapsScript()
-      .then(() => {
-        setMapLoaded(true);
+    let cancelled = false;
+
+    loadMapsLibraries()
+      .then((libs) => {
+        if (cancelled || !mapRef.current) return;
+        libsRef.current = libs;
+
+        const mapId = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID';
+
+        googleMapRef.current = new libs.Map(mapRef.current, {
+          center: DELHI_CENTER,
+          zoom: 13,
+          mapId,
+          zoomControl: true,
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: true,
+        });
+
+        infoWindowRef.current = new libs.InfoWindow();
         setIsLoadingMap(false);
-
-        // Initialize Google Places Autocomplete
-        if (searchInputRef.current && window.google) {
-          const autocomplete = new window.google.maps.places.Autocomplete(searchInputRef.current, {
-            types: ['(regions)'],
-            componentRestrictions: { country: 'in' },
-          });
-
-          autocomplete.addListener('place_changed', () => {
-            const place = autocomplete.getPlace();
-            if (place.geometry) {
-              setConstituencyInput(place.formatted_address);
-              handleSearch(
-                place.formatted_address,
-                place.geometry.location.lat(),
-                place.geometry.location.lng()
-              );
-            }
-          });
-        }
+        loadBoothsByLocation(DELHI_CENTER.lat, DELHI_CENTER.lng);
       })
       .catch((err) => {
+        if (cancelled) return;
         setMapError(err.message);
         setIsLoadingMap(false);
-        // Load booths even without map
         loadBoothsByLocation(DELHI_CENTER.lat, DELHI_CENTER.lng);
       });
-  }, [handleSearch, loadBoothsByLocation]);
 
-  // Initialize map when script is loaded
-  useEffect(() => {
-    if (!mapLoaded || !mapRef.current) return;
+    return () => { cancelled = true; };
+  }, [loadBoothsByLocation]);
 
-    googleMapRef.current = new window.google.maps.Map(mapRef.current, {
-      center: DELHI_CENTER,
-      zoom: 13,
-      mapId: 'DEMO_MAP_ID',
-      styles: DARK_MAP_STYLES,
-      disableDefaultUI: false,
-      zoomControl: true,
-      mapTypeControl: false,
-      streetViewControl: false,
-      fullscreenControl: true,
-    });
-
-    infoWindowRef.current = new window.google.maps.InfoWindow();
-
-    // Load initial booths for Delhi
-    loadBoothsByLocation(DELHI_CENTER.lat, DELHI_CENTER.lng);
-  }, [mapLoaded, loadBoothsByLocation]);
-
-
-
+  // ── Handlers ──────────────────────────────────────────────────────────────
   const handleUseMyLocation = async () => {
     try {
       setIsLoadingBooths(true);
       const { lat, lng } = await getUserLocation();
-      if (googleMapRef.current) {
-        googleMapRef.current.setCenter({ lat, lng });
-        googleMapRef.current.setZoom(14);
-      }
+      googleMapRef.current?.setCenter({ lat, lng });
+      googleMapRef.current?.setZoom(14);
       await loadBoothsByLocation(lat, lng);
     } catch {
       setBoothError('Location access denied. Please search by constituency name.');
@@ -180,14 +179,14 @@ export default function BoothLocator() {
 
   const handleConstituencySearch = async (e) => {
     e.preventDefault();
-    if (!constituencyInput.trim()) return;
+    if (!searchText.trim()) return;
     setIsLoadingBooths(true);
     setBoothError(null);
     try {
-      const fetchedBooths = await fetchPollingBooths({ constituency: constituencyInput });
-      setBooths(fetchedBooths);
-      if (googleMapRef.current && fetchedBooths.length > 0) {
-        placeMarkers(fetchedBooths);
+      const fetched = await fetchPollingBooths({ constituency: searchText });
+      setBooths(fetched);
+      if (googleMapRef.current && fetched.length > 0) {
+        try { placeMarkers(fetched); } catch { /* marker errors don't affect booth list */ }
       }
     } catch {
       setBoothError('Failed to search booths. Please try again.');
@@ -198,12 +197,11 @@ export default function BoothLocator() {
 
   const handleBoothListClick = (booth) => {
     setSelectedBooth(booth);
-    if (googleMapRef.current) {
-      googleMapRef.current.setCenter({ lat: booth.lat, lng: booth.lng });
-      googleMapRef.current.setZoom(16);
-    }
+    googleMapRef.current?.setCenter({ lat: booth.lat, lng: booth.lng });
+    googleMapRef.current?.setZoom(16);
   };
 
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -238,18 +236,17 @@ export default function BoothLocator() {
           <div className="relative flex-1">
             <Search
               size={14}
-              className="absolute left-3 top-1/2 -translate-y-1/2"
+              className="absolute left-3 top-1/2 -translate-y-1/2 z-10 pointer-events-none"
               style={{ color: '#8b949e' }}
             />
             <input
-              ref={searchInputRef}
               id="constituency-search"
               type="text"
-              value={constituencyInput}
-              onChange={(e) => setConstituencyInput(e.target.value)}
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
               placeholder="Search by constituency..."
               aria-label="Search by constituency name"
-              className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm outline-none transition-all"
+              className="w-full h-full pl-9 pr-4 rounded-xl text-sm outline-none transition-all"
               style={{
                 background: 'rgba(255,255,255,0.05)',
                 border: '1px solid rgba(255,255,255,0.1)',
@@ -264,47 +261,29 @@ export default function BoothLocator() {
             disabled={isLoadingBooths}
             aria-label="Search polling booths"
             className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-all hover:scale-105 disabled:opacity-60 cursor-pointer ml-2 flex-shrink-0"
-            style={{
-              background: 'linear-gradient(135deg, #FF9933, #e85c00)',
-              color: 'white',
-            }}
+            style={{ background: 'linear-gradient(135deg, #FF9933, #e85c00)', color: 'white' }}
           >
             Search
           </button>
         </form>
 
         {/* View Toggles */}
-        <div 
-          className="flex items-center gap-1 p-1 rounded-xl flex-shrink-0 h-[42px]" 
+        <div
+          className="flex items-center gap-1 p-1 rounded-xl flex-shrink-0 h-[42px]"
           style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
         >
-          <button
-            type="button"
-            onClick={() => setActiveView('split')}
-            className={`px-3 h-full rounded-lg text-xs font-semibold transition-all ${
-              activeView === 'split' ? 'bg-[#FF9933] text-white' : 'text-[#8b949e] hover:text-white'
-            }`}
-          >
-            Split
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveView('map')}
-            className={`px-3 h-full rounded-lg text-xs font-semibold transition-all ${
-              activeView === 'map' ? 'bg-[#FF9933] text-white' : 'text-[#8b949e] hover:text-white'
-            }`}
-          >
-            Map
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveView('list')}
-            className={`px-3 h-full rounded-lg text-xs font-semibold transition-all ${
-              activeView === 'list' ? 'bg-[#FF9933] text-white' : 'text-[#8b949e] hover:text-white'
-            }`}
-          >
-            List
-          </button>
+          {['split', 'map', 'list'].map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setActiveView(v)}
+              className={`px-3 h-full rounded-lg text-xs font-semibold transition-all capitalize ${
+                activeView === v ? 'bg-[#FF9933] text-white' : 'text-[#8b949e] hover:text-white'
+              }`}
+            >
+              {v}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -318,49 +297,41 @@ export default function BoothLocator() {
             color: mapError ? '#fbbf24' : '#fca5a5',
           }}
         >
-          {mapError
-            ? `⚠️ Maps API: ${mapError} — Showing booth list only.`
-            : `❌ ${boothError}`}
+          {mapError ? `⚠️ Maps API: ${mapError} — Showing booth list only.` : `❌ ${boothError}`}
         </div>
       )}
 
       {/* Map + List grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4" style={{ minHeight: '450px' }}>
-        {/* Map */}
+        {/* Map panel */}
         {(activeView === 'split' || activeView === 'map') && (
-        <div
-          className={`${activeView === 'map' ? 'lg:col-span-3' : 'lg:col-span-2'} rounded-2xl overflow-hidden relative`}
-          style={{
-            background: 'rgba(22,27,34,0.8)',
-            border: '1px solid rgba(255,255,255,0.07)',
-            minHeight: '400px',
-          }}
-        >
-          {isLoadingMap && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10">
-              <Loader2 size={28} className="animate-spin" style={{ color: '#FF9933' }} />
-              <p className="text-sm" style={{ color: '#8b949e' }}>
-                Loading Google Maps...
-              </p>
-            </div>
-          )}
-          {mapError && (
-            <div 
-              className="absolute inset-0 m-6 flex flex-col items-center justify-center gap-3 rounded-2xl"
-              style={{
-                background: 'rgba(255,255,255,0.02)',
-                border: '1px solid rgba(255,255,255,0.05)'
-              }}
-            >
-              <MapPin size={48} style={{ color: '#FF9933', opacity: 0.4 }} />
-              <h3 className="text-lg font-semibold text-white">Map unavailable</h3>
-              <p className="text-sm text-center px-8" style={{ color: '#8b949e' }}>
-                Google Maps requires a valid API key.
-                <br />
-                Configure <code>VITE_GOOGLE_MAPS_API_KEY</code> in <code>.env</code>
-              </p>
-            </div>
-          )}
+          <div
+            className={`${activeView === 'map' ? 'lg:col-span-3' : 'lg:col-span-2'} rounded-2xl overflow-hidden relative`}
+            style={{
+              background: 'rgba(22,27,34,0.8)',
+              border: '1px solid rgba(255,255,255,0.07)',
+              minHeight: '400px',
+            }}
+          >
+            {isLoadingMap && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10">
+                <Loader2 size={28} className="animate-spin" style={{ color: '#FF9933' }} />
+                <p className="text-sm" style={{ color: '#8b949e' }}>Loading Google Maps...</p>
+              </div>
+            )}
+            {mapError && (
+              <div
+                className="absolute inset-0 m-6 flex flex-col items-center justify-center gap-3 rounded-2xl"
+                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}
+              >
+                <MapPin size={48} style={{ color: '#FF9933', opacity: 0.4 }} />
+                <h3 className="text-lg font-semibold text-white">Map unavailable</h3>
+                <p className="text-sm text-center px-8" style={{ color: '#8b949e' }}>
+                  Google Maps requires a valid API key.<br />
+                  Configure <code>VITE_GOOGLE_MAPS_API_KEY</code> in <code>.env</code>
+                </p>
+              </div>
+            )}
             <div
               ref={mapRef}
               id="google-map"
@@ -372,63 +343,63 @@ export default function BoothLocator() {
 
         {/* Booth list sidebar */}
         {(activeView === 'split' || activeView === 'list') && (
-        <div
-          className={`${activeView === 'list' ? 'lg:col-span-3' : 'lg:col-span-1'} rounded-2xl overflow-hidden flex flex-col`}
-          style={{
-            background: 'rgba(22,27,34,0.8)',
-            border: '1px solid rgba(255,255,255,0.07)',
-            maxHeight: '450px',
-          }}
-        >
           <div
-            className="px-4 py-3 flex items-center gap-2"
-            style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}
+            className={`${activeView === 'list' ? 'lg:col-span-3' : 'lg:col-span-1'} rounded-2xl overflow-hidden flex flex-col`}
+            style={{
+              background: 'rgba(22,27,34,0.8)',
+              border: '1px solid rgba(255,255,255,0.07)',
+              maxHeight: '450px',
+            }}
           >
-            <List size={15} style={{ color: '#FF9933' }} />
-            <span className="font-semibold text-sm text-white">
-              Nearby Booths{' '}
-              {booths.length > 0 && (
-                <span
-                  className="ml-1 px-2 py-0.5 rounded-full text-xs"
-                  style={{ background: 'rgba(255,153,51,0.2)', color: '#FF9933' }}
-                >
-                  {booths.length}
-                </span>
-              )}
-            </span>
-          </div>
+            <div
+              className="px-4 py-3 flex items-center gap-2"
+              style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}
+            >
+              <List size={15} style={{ color: '#FF9933' }} />
+              <span className="font-semibold text-sm text-white">
+                Nearby Booths{' '}
+                {booths.length > 0 && (
+                  <span
+                    className="ml-1 px-2 py-0.5 rounded-full text-xs"
+                    style={{ background: 'rgba(255,153,51,0.2)', color: '#FF9933' }}
+                  >
+                    {booths.length}
+                  </span>
+                )}
+              </span>
+            </div>
 
-          <div className="flex-1 overflow-y-auto">
-            {isLoadingBooths ? (
-              <div className="p-4 space-y-3">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="space-y-2">
-                    <div className="skeleton h-4 w-3/4" />
-                    <div className="skeleton h-3 w-full" />
-                    <div className="skeleton h-3 w-1/2" />
-                  </div>
-                ))}
-              </div>
-            ) : booths.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full py-8 gap-3">
-                <MapPin size={32} style={{ color: '#8b949e', opacity: 0.5 }} />
-                <p className="text-sm text-center px-4" style={{ color: '#8b949e' }}>
-                  Search by constituency or use your location to find booths.
-                </p>
-              </div>
-            ) : (
-              <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
-                {booths.map((booth) => (
-                  <BoothListItem
-                    key={booth.id}
-                    booth={booth}
-                    isSelected={selectedBooth?.id === booth.id}
-                    onClick={() => handleBoothListClick(booth)}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
+            <div className="flex-1 overflow-y-auto">
+              {isLoadingBooths ? (
+                <div className="p-4 space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="space-y-2">
+                      <div className="skeleton h-4 w-3/4" />
+                      <div className="skeleton h-3 w-full" />
+                      <div className="skeleton h-3 w-1/2" />
+                    </div>
+                  ))}
+                </div>
+              ) : booths.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full py-8 gap-3">
+                  <MapPin size={32} style={{ color: '#8b949e', opacity: 0.5 }} />
+                  <p className="text-sm text-center px-4" style={{ color: '#8b949e' }}>
+                    Search by constituency or use your location to find booths.
+                  </p>
+                </div>
+              ) : (
+                <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+                  {booths.map((booth) => (
+                    <BoothListItem
+                      key={booth.id}
+                      booth={booth}
+                      isSelected={selectedBooth?.id === booth.id}
+                      onClick={() => handleBoothListClick(booth)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -449,6 +420,7 @@ export default function BoothLocator() {
   );
 }
 
+// ── Booth list item ───────────────────────────────────────────────────────────
 function BoothListItem({ booth, isSelected, onClick }) {
   return (
     <div
@@ -518,94 +490,27 @@ BoothListItem.propTypes = {
   onClick: PropTypes.func.isRequired,
 };
 
-// Dark map styles for Google Maps
+// Dark map styles (used when no mapId is configured)
 const DARK_MAP_STYLES = [
   { elementType: 'geometry', stylers: [{ color: '#212121' }] },
   { elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
   { elementType: 'labels.text.fill', stylers: [{ color: '#757575' }] },
   { elementType: 'labels.text.stroke', stylers: [{ color: '#212121' }] },
-  {
-    featureType: 'administrative',
-    elementType: 'geometry',
-    stylers: [{ color: '#757575' }],
-  },
-  {
-    featureType: 'administrative.country',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#9e9e9e' }],
-  },
-  {
-    featureType: 'administrative.land_parcel',
-    stylers: [{ visibility: 'off' }],
-  },
-  {
-    featureType: 'administrative.locality',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#bdbdbd' }],
-  },
-  {
-    featureType: 'poi',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#757575' }],
-  },
-  {
-    featureType: 'poi.park',
-    elementType: 'geometry',
-    stylers: [{ color: '#181818' }],
-  },
-  {
-    featureType: 'poi.park',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#616161' }],
-  },
-  {
-    featureType: 'poi.park',
-    elementType: 'labels.text.stroke',
-    stylers: [{ color: '#1b1b1b' }],
-  },
-  {
-    featureType: 'road',
-    elementType: 'geometry.fill',
-    stylers: [{ color: '#2c2c2c' }],
-  },
-  {
-    featureType: 'road',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#8a8a8a' }],
-  },
-  {
-    featureType: 'road.arterial',
-    elementType: 'geometry',
-    stylers: [{ color: '#373737' }],
-  },
-  {
-    featureType: 'road.highway',
-    elementType: 'geometry',
-    stylers: [{ color: '#3c3c3c' }],
-  },
-  {
-    featureType: 'road.highway.controlled_access',
-    elementType: 'geometry',
-    stylers: [{ color: '#4e4e4e' }],
-  },
-  {
-    featureType: 'road.local',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#616161' }],
-  },
-  {
-    featureType: 'transit',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#757575' }],
-  },
-  {
-    featureType: 'water',
-    elementType: 'geometry',
-    stylers: [{ color: '#000000' }],
-  },
-  {
-    featureType: 'water',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#3d3d3d' }],
-  },
+  { featureType: 'administrative', elementType: 'geometry', stylers: [{ color: '#757575' }] },
+  { featureType: 'administrative.country', elementType: 'labels.text.fill', stylers: [{ color: '#9e9e9e' }] },
+  { featureType: 'administrative.land_parcel', stylers: [{ visibility: 'off' }] },
+  { featureType: 'administrative.locality', elementType: 'labels.text.fill', stylers: [{ color: '#bdbdbd' }] },
+  { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#757575' }] },
+  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#181818' }] },
+  { featureType: 'poi.park', elementType: 'labels.text.fill', stylers: [{ color: '#616161' }] },
+  { featureType: 'poi.park', elementType: 'labels.text.stroke', stylers: [{ color: '#1b1b1b' }] },
+  { featureType: 'road', elementType: 'geometry.fill', stylers: [{ color: '#2c2c2c' }] },
+  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#8a8a8a' }] },
+  { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#373737' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#3c3c3c' }] },
+  { featureType: 'road.highway.controlled_access', elementType: 'geometry', stylers: [{ color: '#4e4e4e' }] },
+  { featureType: 'road.local', elementType: 'labels.text.fill', stylers: [{ color: '#616161' }] },
+  { featureType: 'transit', elementType: 'labels.text.fill', stylers: [{ color: '#757575' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#000000' }] },
+  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#3d3d3d' }] },
 ];

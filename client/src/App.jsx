@@ -98,8 +98,8 @@ function AppContent() {
           </div>
 
           {/* Navigation */}
-          <nav className="flex flex-col gap-3 flex-1">
-            <p className="text-xs font-bold tracking-widest text-[#94A3B8] uppercase ml-2 mb-2">Menu</p>
+          <nav className="flex flex-col gap-3 flex-1" role="navigation" aria-label="Sidebar navigation">
+            <p className="text-xs font-bold tracking-widest text-[#94A3B8] uppercase ml-2 mb-2" aria-hidden="true">Menu</p>
             {TABS.map((tab) => (
               <button
                 key={tab.id}
@@ -216,7 +216,7 @@ function AppContent() {
       )}
 
       {/* ── Main Content Area ── */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden pt-20 md:pt-0 pb-4 md:py-6 px-4 md:pr-6 md:pl-0 z-10">
+      <main className="flex-1 flex flex-col h-screen overflow-hidden pt-20 md:pt-0 pb-4 md:py-6 px-4 md:pr-6 md:pl-0 z-10" role="main">
         
         {/* Bento Box Grid Hero (Only on Chat) */}
         {isChatTab && (

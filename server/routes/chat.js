@@ -109,6 +109,7 @@ router.post('/', chatRateLimiter, async (req, res) => {
   lastMessage.parts[0].text = sanitizeInput(lastMessage.parts[0].text);
 
   if (!process.env.GEMINI_API_KEY) {
+    console.warn('[Chat API] GEMINI_API_KEY is missing!');
     return res.status(503).json({ error: 'Gemini API key not configured.' });
   }
 
@@ -138,6 +139,7 @@ router.post('/', chatRateLimiter, async (req, res) => {
 
     return res.status(200).json({ response: responseText });
   } catch (err) {
+    console.error('[Chat API Error]', err);
     const rawMessage = err.message || '';
 
     // Detect quota / rate limit errors from Gemini

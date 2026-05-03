@@ -263,7 +263,7 @@ export default function StepperGuide() {
         const isLoading = loadingStep === step.id;
 
         return (
-          <div key={step.id} className="relative animate-fade-in-up" style={{ animationDelay: `${index * 0.07}s` }}>
+          <div key={step.id} className="relative animate-fade-in-up" style={{ animationDelay: `${index * 0.07}s` }} role="region" aria-label={`Step ${step.id}: ${step.title}`}>
             {/* Connector line */}
             {index < ELECTION_STEPS.length - 1 && (
               <div

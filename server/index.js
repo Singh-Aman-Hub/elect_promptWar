@@ -13,6 +13,9 @@ const timelineRoutes = require('./routes/timeline');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Trust Cloud Run proxy for express-rate-limit
+app.set('trust proxy', 1);
+
 /**
  * Security headers configuration.
  * Uses Helmet to set HTTP headers securely while allowing necessary third-party scripts.
