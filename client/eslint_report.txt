@@ -1,0 +1,62 @@
+
+/Users/aman/Downloads/ElectVoice-main/client/src/components/BoothLocator.jsx
+  140:6  warning  React Hook useEffect has missing dependencies: 'DELHI_CENTER.lat' and 'DELHI_CENTER.lng'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  162:6  warning  React Hook useEffect has a missing dependency: 'DELHI_CENTER'. Either include it or remove the dependency array                               react-hooks/exhaustive-deps
+
+/Users/aman/Downloads/ElectVoice-main/client/src/components/ChatWindow.jsx
+  4:58  error  'RefreshCw' is defined but never used  no-unused-vars
+
+/Users/aman/Downloads/ElectVoice-main/client/src/components/NewsSection.jsx
+  30:3  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')
+  32:5  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  30 |   // eslint-disable-next-line react-hooks/exhaustive-deps
+  31 |   useEffect(() => {
+> 32 |     loadNews(searchQuery);
+     |     ^^^^^^^^ Avoid calling setState() directly within an effect
+  33 |   }, []);
+  34 |
+  35 |   const handleSearch = (e) => {  react-hooks/set-state-in-effect
+  33:6  warning  React Hook useEffect has a missing dependency: 'searchQuery'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          react-hooks/exhaustive-deps
+
+/Users/aman/Downloads/ElectVoice-main/client/src/components/Timeline.jsx
+  29:3   warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')
+  36:21  error    Error: Cannot access variable before it is declared
+
+`handleEventClick` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  34 |         // Auto-select latest election
+  35 |         const latest = data.find((e) => e.type === 'current') || data[data.length - 2];
+> 36 |         if (latest) handleEventClick(latest);
+     |                     ^^^^^^^^^^^^^^^^ `handleEventClick` accessed before it is declared
+  37 |       })
+  38 |       .catch((err) => setError(err.message))
+  39 |       .finally(() => setIsLoading(false));
+
+  40 |   }, []);
+  41 |
+> 42 |   const handleEventClick = async (event) => {
+     |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 43 |     if (selectedEvent?.id === event.id) return;
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 44 |     setSelectedEvent(event);
+     …
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 60 |     }
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 61 |   };
+     | ^^^^^ `handleEventClick` is declared here
+  62 |
+  63 |   const handleAskInChat = () => {
+  64 |     if (!selectedEvent) return;  react-hooks/immutability
+  40:6   warning  React Hook useEffect has a missing dependency: 'handleEventClick'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              react-hooks/exhaustive-deps
+
+✖ 9 problems (3 errors, 6 warnings)
+  0 errors and 2 warnings potentially fixable with the `--fix` option.
+

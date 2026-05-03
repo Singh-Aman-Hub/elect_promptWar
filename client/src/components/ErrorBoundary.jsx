@@ -22,8 +22,8 @@ class ErrorBoundary extends React.Component {
       return (
         <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center px-4">
           <AlertTriangle size={64} className="text-red-500 mb-4" />
-          <h2 className="text-2xl font-bold text-white mb-2">Something went wrong</h2>
-          <p className="text-[#8b949e] max-w-md mb-6">
+          <h2 className="text-2xl font-bold text-slate-800 mb-2">Something went wrong</h2>
+          <p className="text-slate-600 max-w-md mb-6">
             We encountered an unexpected error while loading this component. Please try refreshing the page.
           </p>
           <button

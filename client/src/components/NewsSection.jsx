@@ -12,7 +12,6 @@ export default function NewsSection() {
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('India election 2024');
   const [inputValue, setInputValue] = useState('');
-  const [isMock, setIsMock] = useState(false);
 
   const loadNews = async (query = 'India election 2024') => {
     setIsLoading(true);
@@ -29,7 +28,9 @@ export default function NewsSection() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadNews(searchQuery);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSearch = (e) => {

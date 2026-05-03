@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Send, Trash2, Bot, User, Sparkles, AlertCircle, RefreshCw } from 'lucide-react';
+import { Send, Trash2, Bot, User, Sparkles, AlertCircle } from 'lucide-react';
 import PropTypes from 'prop-types';
 import { useAppContext } from '../context/AppContext';
 import { sendChatMessage } from '../services/geminiService';
@@ -179,6 +179,7 @@ export default function ChatWindow() {
           <textarea
             ref={inputRef}
             id="chat-input"
+            aria-label="Message input"
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -197,6 +198,7 @@ export default function ChatWindow() {
           <button
             onClick={() => handleSend()}
             disabled={isLoading || !inputText.trim()}
+            aria-label="Send message"
             className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-gradient-to-br from-[#FF6B00] to-[#FF9933] shadow-md shadow-orange-500/20 hover:scale-[1.05]"
           >
             <Send size={18} color="white" className="ml-0.5" />

@@ -11,7 +11,7 @@ export default function BoothLocator() {
   const [booths, setBooths] = useState([]);
   const [selectedBooth, setSelectedBooth] = useState(null);
   const [isLoadingBooths, setIsLoadingBooths] = useState(false);
-  const [isLoadingMap, setIsLoadingMap] = useState(false);
+  const [isLoadingMap, setIsLoadingMap] = useState(true);
   const [mapError, setMapError] = useState(null);
   const [boothError, setBoothError] = useState(null);
   const [constituencyInput, setConstituencyInput] = useState('');
@@ -26,94 +26,7 @@ export default function BoothLocator() {
 
   const DELHI_CENTER = { lat: 28.6139, lng: 77.209 };
 
-  // Initialize Google Maps
-  useEffect(() => {
-    setIsLoadingMap(true);
-    loadGoogleMapsScript()
-      .then(() => {
-        setMapLoaded(true);
-        setIsLoadingMap(false);
-
-        // Initialize Google Places Autocomplete
-        if (searchInputRef.current && window.google) {
-          const autocomplete = new window.google.maps.places.Autocomplete(searchInputRef.current, {
-            types: ['(regions)'],
-            componentRestrictions: { country: 'in' },
-          });
-
-          autocomplete.addListener('place_changed', () => {
-            const place = autocomplete.getPlace();
-            if (place.geometry) {
-              setConstituencyInput(place.formatted_address);
-              handleSearch(
-                place.formatted_address,
-                place.geometry.location.lat(),
-                place.geometry.location.lng()
-              );
-            }
-          });
-        }
-      })
-      .catch((err) => {
-        setMapError(err.message);
-        setIsLoadingMap(false);
-        // Load booths even without map
-        loadBoothsByLocation(DELHI_CENTER.lat, DELHI_CENTER.lng);
-      });
-  }, []);
-
-  // Initialize map when script is loaded
-  useEffect(() => {
-    if (!mapLoaded || !mapRef.current) return;
-
-    googleMapRef.current = new window.google.maps.Map(mapRef.current, {
-      center: DELHI_CENTER,
-      zoom: 13,
-      mapId: 'DEMO_MAP_ID',
-      styles: DARK_MAP_STYLES,
-      disableDefaultUI: false,
-      zoomControl: true,
-      mapTypeControl: false,
-      streetViewControl: false,
-      fullscreenControl: true,
-    });
-
-    infoWindowRef.current = new window.google.maps.InfoWindow();
-
-    // Load initial booths for Delhi
-    loadBoothsByLocation(DELHI_CENTER.lat, DELHI_CENTER.lng);
-  }, [mapLoaded]);
-
-  const loadBoothsByLocation = useCallback(async (lat, lng) => {
-    setIsLoadingBooths(true);
-    setBoothError(null);
-    try {
-      const fetchedBooths = await fetchPollingBooths({ lat, lng });
-      setBooths(fetchedBooths);
-      if (googleMapRef.current) {
-        placeMarkers(fetchedBooths);
-      }
-    } catch (err) {
-      setBoothError('Failed to load booths. Please try again.');
-    } finally {
-      setIsLoadingBooths(false);
-    }
-  }, []);
-
-  const handleSearch = useCallback(
-    async (address, lat, lng) => {
-      setIsLoadingBooths(true);
-      setBoothError(null);
-      if (googleMapRef.current) {
-        googleMapRef.current.setCenter({ lat, lng });
-        googleMapRef.current.setZoom(14);
-      }
-      await loadBoothsByLocation(lat, lng);
-    },
-    [loadBoothsByLocation]
-  );
-
-  const placeMarkers = (boothList) => {
+  const placeMarkers = useCallback((boothList) => {
     // Clear existing markers
     markersRef.current.forEach((m) => m.setMap(null));
     markersRef.current = [];
@@ -160,7 +73,95 @@ export default function BoothLocator() {
       boothList.forEach((b) => bounds.extend({ lat: b.lat, lng: b.lng }));
       googleMapRef.current.fitBounds(bounds, 60);
     }
-  };
+  }, []);
+
+  const loadBoothsByLocation = useCallback(async (lat, lng) => {
+    setIsLoadingBooths(true);
+    setBoothError(null);
+    try {
+      const fetchedBooths = await fetchPollingBooths({ lat, lng });
+      setBooths(fetchedBooths);
+      if (googleMapRef.current) {
+        placeMarkers(fetchedBooths);
+      }
+    } catch {
+      setBoothError('Failed to load booths. Please try again.');
+    } finally {
+      setIsLoadingBooths(false);
+    }
+  }, [placeMarkers]);
+
+  const handleSearch = useCallback(
+    async (address, lat, lng) => {
+      setIsLoadingBooths(true);
+      setBoothError(null);
+      if (googleMapRef.current) {
+        googleMapRef.current.setCenter({ lat, lng });
+        googleMapRef.current.setZoom(14);
+      }
+      await loadBoothsByLocation(lat, lng);
+    },
+    [loadBoothsByLocation]
+  );
+
+  // Initialize Google Maps
+  useEffect(() => {
+    loadGoogleMapsScript()
+      .then(() => {
+        setMapLoaded(true);
+        setIsLoadingMap(false);
+
+        // Initialize Google Places Autocomplete
+        if (searchInputRef.current && window.google) {
+          const autocomplete = new window.google.maps.places.Autocomplete(searchInputRef.current, {
+            types: ['(regions)'],
+            componentRestrictions: { country: 'in' },
+          });
+
+          autocomplete.addListener('place_changed', () => {
+            const place = autocomplete.getPlace();
+            if (place.geometry) {
+              setConstituencyInput(place.formatted_address);
+              handleSearch(
+                place.formatted_address,
+                place.geometry.location.lat(),
+                place.geometry.location.lng()
+              );
+            }
+          });
+        }
+      })
+      .catch((err) => {
+        setMapError(err.message);
+        setIsLoadingMap(false);
+        // Load booths even without map
+        loadBoothsByLocation(DELHI_CENTER.lat, DELHI_CENTER.lng);
+      });
+  }, [handleSearch, loadBoothsByLocation]);
+
+  // Initialize map when script is loaded
+  useEffect(() => {
+    if (!mapLoaded || !mapRef.current) return;
+
+    googleMapRef.current = new window.google.maps.Map(mapRef.current, {
+      center: DELHI_CENTER,
+      zoom: 13,
+      mapId: 'DEMO_MAP_ID',
+      styles: DARK_MAP_STYLES,
+      disableDefaultUI: false,
+      zoomControl: true,
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: true,
+    });
+
+    infoWindowRef.current = new window.google.maps.InfoWindow();
+
+    // Load initial booths for Delhi
+    loadBoothsByLocation(DELHI_CENTER.lat, DELHI_CENTER.lng);
+  }, [mapLoaded, loadBoothsByLocation]);
+
+
 
   const handleUseMyLocation = async () => {
     try {
@@ -188,7 +189,7 @@ export default function BoothLocator() {
       if (googleMapRef.current && fetchedBooths.length > 0) {
         placeMarkers(fetchedBooths);
       }
-    } catch (err) {
+    } catch {
       setBoothError('Failed to search booths. Please try again.');
     } finally {
       setIsLoadingBooths(false);

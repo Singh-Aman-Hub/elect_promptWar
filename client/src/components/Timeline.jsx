@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Trophy, Clock, ChevronRight, Loader2 } from 'lucide-react';
+import { Calendar, ChevronRight, Loader2 } from 'lucide-react';
 import PropTypes from 'prop-types';
 import { fetchTimeline } from '../services/searchService';
 import { useAppContext } from '../context/AppContext';
@@ -26,19 +26,7 @@ export default function Timeline() {
   const [isExplaining, setIsExplaining] = useState(false);
   const { language, addMessage, setActiveTab } = useAppContext();
 
-  useEffect(() => {
-    fetchTimeline()
-      .then((data) => {
-        setEvents(data);
-        // Auto-select latest election
-        const latest = data.find((e) => e.type === 'current') || data[data.length - 2];
-        if (latest) handleEventClick(latest, data);
-      })
-      .catch((err) => setError(err.message))
-      .finally(() => setIsLoading(false));
-  }, []);
-
-  const handleEventClick = async (event, allEvents = events) => {
+  const handleEventClick = async (event) => {
     if (selectedEvent?.id === event.id) return;
     setSelectedEvent(event);
     setExplanation('');
@@ -58,6 +46,19 @@ export default function Timeline() {
       setIsExplaining(false);
     }
   };
+
+  useEffect(() => {
+    fetchTimeline()
+      .then((data) => {
+        setEvents(data);
+        // Auto-select latest election
+        const latest = data.find((e) => e.type === 'current') || data[data.length - 2];
+        if (latest) handleEventClick(latest);
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setIsLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleAskInChat = () => {
     if (!selectedEvent) return;

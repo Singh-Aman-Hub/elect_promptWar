@@ -7,7 +7,11 @@ const router = express.Router();
 
 const xss = require('xss');
 
-// Sanitize user input — block XSS attacks and strip HTML tags completely
+/**
+ * Sanitizes user input to prevent XSS attacks by completely stripping all HTML tags.
+ * @param {string} text - The raw user input text.
+ * @returns {string} The sanitized text.
+ */
 function sanitizeInput(text) {
   return xss(text, {
     whiteList: {}, // completely strip all HTML tags
@@ -16,7 +20,11 @@ function sanitizeInput(text) {
   }).trim();
 }
 
-// Build the system prompt based on language
+/**
+ * Builds the system prompt for the Gemini model based on the selected language.
+ * @param {string} language - The 2-letter language code (e.g., 'en', 'hi', 'ta').
+ * @returns {string} The constructed system instruction string.
+ */
 function buildSystemPrompt(language = 'en') {
   const langMap = {
     en: 'English',

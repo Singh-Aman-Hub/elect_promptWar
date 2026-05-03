@@ -9,10 +9,8 @@ import {
   Menu,
   X,
   Vote,
-  ExternalLink,
   Zap,
   LogIn,
-  LogOut,
   ChevronRight,
   User as UserIcon,
   Globe
@@ -51,6 +49,11 @@ const TAB_COMPONENTS = {
   timeline: Timeline,
 };
 
+/**
+ * Main application layout and routing component.
+ * Handles the sidebar navigation, mobile menu, and dynamic content rendering.
+ * @returns {JSX.Element} The rendered application layout.
+ */
 function AppContent() {
   const { activeTab, setActiveTab } = useAppContext();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
